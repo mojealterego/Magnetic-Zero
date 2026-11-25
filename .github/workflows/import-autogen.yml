@@ -1,0 +1,34 @@
+name: Import verified AutoGen source
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/import-autogen.yml'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Import pinned source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          git init -b main
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config credential.helper '!f() { echo username=x-access-token; echo password="$GH_TOKEN"; }; f'
+          git remote add origin https://github.com/mojealterego/Magnetic-Zero.git
+          git fetch --no-tags origin main
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_HEAD"
+          git fetch --no-tags https://github.com/microsoft/autogen.git 8390985108cb1e3881f5f7297765758d8ad2540c
+          source_tree=$(git rev-parse '8390985108cb1e3881f5f7297765758d8ad2540c^{tree}')
+          test "$source_tree" = c906552fe9aec122c4268bdd6c81813fb8286ca6
+          test "$(git ls-tree -r "$source_tree" | wc -l)" -eq 1837
+          commit=$(git commit-tree "$source_tree" -p "$EXPECTED_HEAD" -m 'Import pinned original AutoGen source')
+          git push origin "$commit:refs/heads/main"
